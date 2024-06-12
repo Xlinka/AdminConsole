@@ -13,7 +13,6 @@ namespace AdminConsole
     internal class Program
     {
         private static Queue<Message> _messageQueue = new Queue<Message>();
-        private static readonly string LogFilePath = $"console_log_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
         private static string currentUser = "U-Resonite";
 
         private static async Task Main(string[] args)
@@ -22,13 +21,13 @@ namespace AdminConsole
             Console.InputEncoding = Encoding.UTF8;
             var config = SkyFrostConfig.SKYFROST_PRODUCTION.WithUserAgent("AdminConsole", "1.0.0");
 
-            Log($"Program started at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            Logger.Log($"Program started at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
 
             string machineId = GenerateRandomMachineId();
-            Log($"Generated machine ID: {machineId}");
+            Logger.Log($"Generated machine ID: {machineId}");
 
             string uid = GenerateUID(machineId);
-            Log($"Generated UID: {uid}");
+            Logger.Log($"Generated UID: {uid}");
 
             var skyFrost = new SkyFrostInterface(uid, machineId, config);
 
@@ -36,38 +35,38 @@ namespace AdminConsole
             do
             {
                 Console.ForegroundColor = ConsoleColor.White;
-                Log("Prompting for login...");
+                Logger.Log("Prompting for login...");
 
                 await Task.Delay(1000);  // Adding delay before login prompt
 
-                Log("Login: ", false);
+                Logger.Log("Login: ", false);
                 string login = Console.ReadLine();
-                Log(login, false);
+                Logger.Log(login, false);
 
-                Log("Password: ", false);
+                Logger.Log("Password: ", false);
                 string pass = ReadPassword();
-                Log("Attempting to log in...");
+                Logger.Log("Attempting to log in...");
 
                 var loginResult = await skyFrost.Session.Login(login, new PasswordLogin(pass), machineId, rememberMe: false, null);
 
                 if (loginResult.Content == "TOTP")
                 {
-                    Log("2FA Code required...");
-                    Log("2FA Code: ", false);
+                    Logger.Log("2FA Code required...");
+                    Logger.Log("2FA Code: ", false);
                     string code = Console.ReadLine();
-                    Log("Attempting 2FA login...");
+                    Logger.Log("Attempting 2FA login...");
                     loginResult = await skyFrost.Session.Login(login, new PasswordLogin(pass), machineId, rememberMe: false, code);
                 }
 
                 if (loginResult.IsError)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Log("Error logging in!\t" + loginResult.Content);
+                    Logger.Log("Error logging in!\t" + loginResult.Content);
                 }
                 else
                 {
                     loggedIn = true;
-                    Log("Login successful. Updating user status to Online...");
+                    Logger.Log("Login successful. Updating user status to Online...");
                     // Update user status to Online
                     await UpdateUserStatus(skyFrost);
                 }
@@ -78,21 +77,21 @@ namespace AdminConsole
             var skyFrostMessages = skyFrost.Messages.GetUserMessages(currentUser);
             skyFrost.Messages.OnMessageReceived += Messages_OnMessageReceived;
 
-            Log("Setting up message listener...");
+            Logger.Log("Setting up message listener...");
             skyFrost.Update();
 
             while (!cancelToken.IsCancellationRequested)
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Log($"{skyFrost.CurrentUsername}> ", false);
+                Logger.Log($"{skyFrost.CurrentUsername}> ", false);
                 Console.ForegroundColor = ConsoleColor.Yellow;
 
                 string command = Console.ReadLine().Trim();
-                Log($"Received command: {command}");
+                Logger.Log($"Received command: {command}");
 
                 if (string.IsNullOrEmpty(command))
                 {
-                    Log("Empty command. Skipping...");
+                    Logger.Log("Empty command. Skipping...");
                     continue;
                 }
 
@@ -103,7 +102,7 @@ namespace AdminConsole
 
                 if (command.ToLower() == "exit")
                 {
-                    Log("Exit command received. Canceling...");
+                    Logger.Log("Exit command received. Canceling...");
                     cancelToken.Cancel();
                     break;
                 }
@@ -111,20 +110,20 @@ namespace AdminConsole
                 if (command.StartsWith("changeuser "))
                 {
                     currentUser = command.Substring(11).Trim();
-                    Log($"Changed current user to: {currentUser}");
+                    Logger.Log($"Changed current user to: {currentUser}");
                     skyFrostMessages = skyFrost.Messages.GetUserMessages(currentUser);
                     continue;
                 }
 
-                Log($"Sending command: /{command}");
+                Logger.Log($"Sending command: /{command}");
                 if (!(await skyFrostMessages.SendTextMessage("/" + command)))
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Log("Error sending message!");
+                    Logger.Log("Error sending message!");
                     continue;
                 }
 
-                Log("Waiting for response...");
+                Logger.Log("Waiting for response...");
                 var s = Stopwatch.StartNew();
                 while (_messageQueue.Count == 0 && s.ElapsedMilliseconds < 5000)
                 {
@@ -136,22 +135,22 @@ namespace AdminConsole
                 {
                     var msg = _messageQueue.Dequeue();
                     Console.ForegroundColor = ConsoleColor.Blue;
-                    Log($"{currentUser}: ", false);
-                    Log(msg.Content);
+                    Logger.Log($"{currentUser}: ", false);
+                    Logger.Log(msg.Content);
                 }
 
                 skyFrostMessages.MarkAllRead();
             }
 
             Console.ForegroundColor = ConsoleColor.White;
-            Log("Logging out...");
+            Logger.Log("Logging out...");
             await skyFrost.Session.FinalizeSession();
-            Log("Program ended.");
+            Logger.Log("Program ended.");
         }
 
         private static void Messages_OnMessageReceived(Message obj)
         {
-            Log($"Message received from {obj.SenderId}: {obj.Content}");
+            Logger.Log($"Message received from {obj.SenderId}: {obj.Content}");
             if (obj.SenderId == currentUser)
             {
                 _messageQueue.Enqueue(obj);
@@ -193,25 +192,11 @@ namespace AdminConsole
                 LastPresenceTimestamp = DateTime.UtcNow,
                 LastStatusChange = DateTime.UtcNow,
                 CompatibilityHash = "adminconsole",
-                AppVersion = "AdminConsole 1.0.2",
+                AppVersion = "AdminConsole 1.0.3",
                 IsMobile = false
             };
-            Log($"Broadcasting user status: {status}");
+            Logger.Log($"Broadcasting user status: {status}");
             await skyFrost.HubClient.BroadcastStatus(status, BroadcastTarget.ALL_CONTACTS);
-        }
-
-        private static void Log(string message, bool newLine = true)
-        {
-            string logMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] : {message}";
-            if (newLine)
-            {
-                Console.WriteLine(logMessage);
-            }
-            else
-            {
-                Console.Write(logMessage);
-            }
-            File.AppendAllText(LogFilePath, logMessage + Environment.NewLine);
         }
 
         private static string ReadPassword()
