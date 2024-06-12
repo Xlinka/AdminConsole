@@ -1,6 +1,6 @@
 # AdminConsole
 
-AdminConsole is a standalone console application designed to interface with the Resonite chat, primarily for the Resonite bot to execute commands without opening the game. This program allows administrators to log in, send commands, and receive messages from Resonite users.
+AdminConsole is a standalone console application designed to interface with the Resonite chat, primarily for the Resonite bot to execute commands without opening the game. This program allows users to log in, send commands, and receive messages from Resonite users.
 
 ## Features
 
