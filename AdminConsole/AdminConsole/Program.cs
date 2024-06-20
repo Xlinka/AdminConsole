@@ -6,20 +6,25 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using SkyFrost.Base;
 
 namespace AdminConsole
 {
     internal class Program
     {
+
         private static Queue<Message> _messageQueue = new Queue<Message>();
         private static string currentUser = "U-Resonite";
 
         private static async Task Main(string[] args)
         {
+           
+
+
             Console.OutputEncoding = Encoding.UTF8;
             Console.InputEncoding = Encoding.UTF8;
-            var config = SkyFrostConfig.SKYFROST_PRODUCTION.WithUserAgent("AdminConsole", "1.0.0");
+            var config = SkyFrostConfig.SKYFROST_PRODUCTION.WithUserAgent("AdminConsole", "1.0.5");
 
             Logger.Log($"Program started at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
 
@@ -109,14 +114,19 @@ namespace AdminConsole
 
                 if (command.StartsWith("changeuser "))
                 {
-                    currentUser = command.Substring(11).Trim();
+                    currentUser = "U-" + command.Substring(11).Trim();
                     Logger.Log($"Changed current user to: {currentUser}");
                     skyFrostMessages = skyFrost.Messages.GetUserMessages(currentUser);
                     continue;
                 }
 
-                Logger.Log($"Sending command: /{command}");
-                if (!(await skyFrostMessages.SendTextMessage("/" + command)))
+                if (currentUser == "U-Resonite")
+                {
+                    command = "/" + command;
+                }
+
+                Logger.Log($"Sending command: {command}");
+                if (!(await skyFrostMessages.SendTextMessage(command)))
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Logger.Log("Error sending message!");
@@ -192,7 +202,7 @@ namespace AdminConsole
                 LastPresenceTimestamp = DateTime.UtcNow,
                 LastStatusChange = DateTime.UtcNow,
                 CompatibilityHash = "adminconsole",
-                AppVersion = "AdminConsole 1.0.3",
+                AppVersion = "AdminConsole 1.0.5",
                 IsMobile = false
             };
             Logger.Log($"Broadcasting user status: {status}");
